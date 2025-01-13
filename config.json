@@ -1,0 +1,5 @@
+{
+  "data_path": "/mnt/c/2024-10/data/",
+  "ray_results_path": "results/",
+  "prediction_checkpoint_path": "release/"
+}
