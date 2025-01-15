@@ -161,16 +161,16 @@ def print_graph_report(g: nx.DiGraph):
         
     warning_phrase = "Predictions may be unreliable."
     if stats['nodes'] > dyppin_summary['nodes']['max']:
-        print(f"WARNING: the graph has more nodes ({stats['nodes']}) than the maximum number of nodes in the DYPPI dataset ({dyppin_summary['nodes']['max']}). {warning_phrase}")
+        print(f"WARNING: the graph has more nodes ({stats['nodes']}) than the maximum number of nodes in the DyPPIN dataset ({dyppin_summary['nodes']['max']}). {warning_phrase}")
         
     if stats['edges'] > dyppin_summary['edges']['max']:
-        print(f"WARNING: the graph has more edges ({stats['edges']}) than the maximum number of edges in the DYPPI dataset ({dyppin_summary['edges']['max']}). {warning_phrase}")
+        print(f"WARNING: the graph has more edges ({stats['edges']}) than the maximum number of edges in the DyPPIN dataset ({dyppin_summary['edges']['max']}). {warning_phrase}")
         
     if stats['avg_degree'] > dyppin_summary['avg_degree']['max']:
         print(f"WARNING: the graph has a higher average degree ({stats['avg_degree']}) than the maximum average degree in the DYPPI dataset ({dyppin_summary['avg_degree']['max']}). {warning_phrase}")
 
     if stats['diameter'] > dyppin_summary['diameter']['max']:
-        print(f"WARNING: the graph has a higher diameter ({stats['diameter']}) than the maximum diameter in the DYPPI dataset ({dyppin_summary['diameter']['max']}). {warning_phrase}")
+        print(f"WARNING: the graph has a higher diameter ({stats['diameter']}) than the maximum diameter in the DyPPIN dataset ({dyppin_summary['diameter']['max']}). {warning_phrase}")
         
     
     

@@ -112,22 +112,18 @@ if __name__ == "__main__":
     # load the DGN model
     ckpts={}
     for fold in range(4):
-        dir = get_data_path() / f'ckpts/prediction/{fold}'
+        dir = get_data_path() / f'prediction_data/ckpts/{fold}'
         config = pickle.load((dir/"params.pkl").open("rb"))
         ckpts[fold] = {
             'config': config,
-            'ckpt': pickle.load((dir/"ckpt.pkl").open("rb"))
+            'ckpt': dir/"last.ckpt"
         }
         
-    
-
     # perform the prediction with the four checkpoints and then average them
     predictions = []    
     for k, v in ckpts.items():
-        for ckpt in v['ckpts']:
-            print(k, ckpt)
-            pred = load_and_predict(v['config'], ckpt, datalist)
-            predictions.append(pred)
+        pred = load_and_predict(v['config'], v['ckpt'], datalist)
+        predictions.append(pred)
 
     # average the predictions
     predictions = torch.stack(predictions)        
