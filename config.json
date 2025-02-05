@@ -1,5 +1,5 @@
 {
-  "data_path": "/mnt/c/2024-10/data/",
-  "ray_results_path": "results/",
-  "prediction_checkpoint_path": "release/"
+  "data_path": "/data/adipalma/sensitivity_ppin_data_sub",
+  "ray_results_path": "/data/ray_results/",
+  "prediction_checkpoint_path": "prediction_data/ckpts"
 }
