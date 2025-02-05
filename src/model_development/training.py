@@ -83,57 +83,60 @@ data_dict = create_fold_pointers(search_space)
 data_dict_pointer = ray.put(data_dict)
 
     
-def train_gcn(config):
-    seed_everything(search_space['seed'], workers=True)
-    
-    wandb.init(project=project, name = ray.tune.get_trial_name(), config=config)
-    logger = WandbLogger(project=project, config=config, settings=wandb.Settings(start_method="fork"))
-    logger.log_hyperparams(config)
-    
-    data_dict = ray.get(data_dict_pointer)
+class TrainGCN(tune.Trainable):
+    def setup(self, config):
+        self.config = config
+        seed_everything(self.config['seed'], workers=True)
+        
+        wandb.init(project=project, name=self.trial_name, config=self.config)
+        self.logger = WandbLogger(project=project, config=self.config, settings=wandb.Settings(start_method="fork"))
+        self.logger.log_hyperparams(self.config)
+        
+        data_dict = ray.get(data_dict_pointer)
+        folds, df_pointer = data_dict[self.config['embeddings_len']]
+        
+        fold = ray.get(folds[self.config['use_case']][self.config['test_fold']])
+        self.test = fold['test']
+        outer_train = fold['train']
+        self.train = outer_train[self.config["val_fold"]]['train']
+        self.val = outer_train[self.config["val_fold"]]['val']
+        
+        if df_pointer is not None:
+            self.sensitivity_df = ray.get(df_pointer)
+        else:
+            self.sensitivity_df = None
 
-    folds, df_pointer = data_dict[config['embeddings_len']]
-    
-    fold = ray.get(folds[config['use_case']][config['test_fold']])
-    test = fold['test']
-    outer_train = fold['train']
-    train = outer_train[config["val_fold"]]['train']
-    val = outer_train[config["val_fold"]]['val']
-    
-    if df_pointer is not None:
-        sensitivity_df = ray.get(df_pointer)
-    else:
-        sensitivity_df = None
+        self.data = GraphDataModule(self.train, self.val, self.test, self.config, property_df=self.sensitivity_df)
+        self.data.setup()
 
-    data = GraphDataModule(train, val, test, config, property_df=sensitivity_df)
-    data.setup()
+        input_dim = self.train[0].x.shape[1]
+        output_dim = 1
+        
+        self.model = models_dict[self.config['model']](input_dim, output_dim, self.config)
+        
+        self.callbacks = []
+        if self.config['early_stop']:
+            self.callbacks.append(EarlyStopping(monitor="val_loss", mode='min', patience=self.config['patience'], min_delta=self.config['es_eps']))
+        if self.config['ckpt']:
+            self.callbacks.append(ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=1, save_last=True, every_n_epochs=200))
 
-    input_dim = train[0].x.shape[1]
-    output_dim = 1
-    
-    model = models_dict[config['model']](input_dim, output_dim, config)
-    
-    callbacks=[]
-    if config['early_stop']:
-        callbacks.append(EarlyStopping(monitor="val_loss", mode='min', patience=config['patience'], min_delta=config['es_eps']))
-    if config['ckpt']:
-        callbacks.append(ModelCheckpoint(monitor="val_loss", mode='min', save_top_k=1, save_last=True, every_n_epochs=200))
+        if torch.cuda.is_available():
+            self.cuda_args = {"devices": 1, "accelerator": "gpu", "strategy": "ddp"}
+        else:
+            self.cuda_args = {"accelerator": "cpu"}
 
-    if torch.cuda.is_available():
-        cuda_args = {"devices": 1, "accelerator": "gpu", "strategy": "ddp"}
-    else:
-        cuda_args = {"accelerator": "cpu"}
+        self.trainer = Trainer(max_epochs=self.config['max_epochs'], logger=self.logger, enable_progress_bar=False, 
+                               callbacks=self.callbacks, log_every_n_steps=args.log_every_n_steps, **self.cuda_args)
+        
+        self.logger.watch(self.model, log="all", log_freq=args.log_every_n_steps)
 
-    trainer = Trainer(max_epochs=config['max_epochs'], logger=logger, enable_progress_bar = False, 
-                            callbacks=callbacks, log_every_n_steps=args.log_every_n_steps, **cuda_args)
-  
-    logger.watch(model, log="all", log_freq=args.log_every_n_steps)
+    def step(self):
+        self.trainer.fit(self.model, self.data)
+        results = self.trainer.test(self.model, self.data.test_dataloader())
+        return {"loss": results[0]["test_loss"]}
 
-    trainer.fit(model, data)
-
-    trainer.test(model, data.test_dataloader())
-
-    wandb.finish()
+    def cleanup(self):
+        wandb.finish()
 
 
 os.environ["TUNE_DISABLE_STRICT_METRIC_CHECKING"] = "1"
@@ -144,15 +147,15 @@ if args.gpus_per_trial > 0:
 else:
     max_concurrent_trials = 8
 
-tuner = tune.Tuner(tune.with_resources(train_gcn, {"cpu": search_space["workers"], "gpu": args.gpus_per_trial}),
-                   tune_config=tune.TuneConfig(
-                       metric="loss",
-                       mode="min",
-                       max_concurrent_trials=max_concurrent_trials,
-                   ),
-                   run_config=air.RunConfig(local_dir="/data/ray_results"),
-                   param_space=search_space,
-                   
+tuner = tune.Tuner(
+    tune.with_resources(TrainGCN, {"cpu": search_space["workers"], "gpu": args.gpus_per_trial}),
+    tune_config=tune.TuneConfig(
+        metric="loss",
+        mode="min",
+        max_concurrent_trials=max_concurrent_trials,
+    ),
+    run_config=air.RunConfig(storage_path="/data/ray_results"),
+    param_space=search_space,
 )
 
 tuner.fit()

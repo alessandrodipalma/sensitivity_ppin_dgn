@@ -17,7 +17,6 @@ class DGN(LightningModule):
         self.hidden_dim = hidden_dim
         self.lr = config["lr"]
         self.weight_decay = config["weight_decay"]
-        self.whole_ppi = config["whole_ppi"]
         self.warmup_steps = config["warmup_steps"]
         self.max_epochs = config["max_epochs"]
 

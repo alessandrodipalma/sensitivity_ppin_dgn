@@ -6,11 +6,11 @@ import ray
 from ray.tune import grid_search
 from pathlib import Path
 
-data_path = Path(osp.expanduser(json.load(open("../config.json"))["data_path"]))/'training_data'
+data_path = Path(osp.expanduser(json.load(open("config.json"))["data_path"]))/'training_data'
 
 def create_fold_dict(config):
     
-    filename = f"io"+ (config["embeddings_len"] if config["embeddings_len"]!=0 else "")+".pkl"
+    filename = "io"+ (f"+{config['embeddings_len']}" if config["embeddings_len"]!=0 else "")+".pkl"
 
     datalist = pickle.load((data_path/ "pyg_datalists" / filename).open("rb"))
 
