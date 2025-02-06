@@ -106,7 +106,7 @@ class DGN(LightningModule):
         
         if self.conv_factory.conv == DirGNNConvWrapper:
             for i in range(self.layers):
-                self.log_dict({f"W_in_{i}": torch.norm(list(self.__getattr__(f"conv{i}").conv.conv_in.parameters())[1]), f"W_out_{i}": torch.norm(list(self.__getattr__(f"conv{i}").conv.conv_out.parameters())[1])})
+                self.log_dict({f"W_in_{i}": torch.norm(list(self.__getattr__(f"conv{i}").conv.conv_in.parameters())[1]), f"W_out_{i}": torch.norm(list(self.__getattr__(f"conv{i}").conv.conv_out.parameters())[1])}, sync_dist=True)
          
 
         return super().on_train_epoch_end()

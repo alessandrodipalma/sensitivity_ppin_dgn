@@ -1,5 +1,5 @@
 import ray
-from ray import air, tune
+from ray import air, tune, train
 from lightning import Trainer, seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -7,14 +7,13 @@ from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 
 import os
 import torch
-
-import wandb
-
+from ray.air.integrations.wandb import WandbLoggerCallback, setup_wandb
 from src.model_development.dgn.dgn import DGN
 from src.model_development.datamodule import GraphDataModule
 from src.model_development.cli import get_args
 from src.model_development.kfold import create_fold_pointers
 from src.model_development.dgn.deepsets import DeepSetsModule
+import wandb
 
 args = get_args()
 
@@ -84,12 +83,13 @@ data_dict_pointer = ray.put(data_dict)
 
     
 class TrainGCN(tune.Trainable):
+    
     def setup(self, config):
         self.config = config
         seed_everything(self.config['seed'], workers=True)
         
         wandb.init(project=project, name=self.trial_name, config=self.config)
-        self.logger = WandbLogger(project=project, config=self.config, settings=wandb.Settings(start_method="fork"))
+        self.logger = WandbLogger(project=project, config=self.config, name=self.trial_name, settings=wandb.Settings(start_method="fork"))
         self.logger.log_hyperparams(self.config)
         
         data_dict = ray.get(data_dict_pointer)
@@ -125,7 +125,7 @@ class TrainGCN(tune.Trainable):
         else:
             self.cuda_args = {"accelerator": "cpu"}
 
-        self.trainer = Trainer(max_epochs=self.config['max_epochs'], logger=self.logger, enable_progress_bar=False, 
+        self.trainer = Trainer(max_epochs=self.config['max_epochs'], enable_progress_bar=False, logger=self.logger,
                                callbacks=self.callbacks, log_every_n_steps=args.log_every_n_steps, **self.cuda_args)
         
         self.logger.watch(self.model, log="all", log_freq=args.log_every_n_steps)
@@ -137,7 +137,6 @@ class TrainGCN(tune.Trainable):
 
     def cleanup(self):
         wandb.finish()
-
 
 os.environ["TUNE_DISABLE_STRICT_METRIC_CHECKING"] = "1"
 print("Gpu available: ", torch.cuda.is_available(), ray.get_gpu_ids())
@@ -154,7 +153,7 @@ tuner = tune.Tuner(
         mode="min",
         max_concurrent_trials=max_concurrent_trials,
     ),
-    run_config=air.RunConfig(storage_path="/data/ray_results"),
+    run_config=air.RunConfig(storage_path="/data/ray_results", stop={"training_iteration": 1}),    
     param_space=search_space,
 )
 
