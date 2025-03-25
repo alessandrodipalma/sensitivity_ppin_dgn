@@ -60,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', help='directory containing the dataset', required=False, default='data')
     parser.add_argument('--all-present', help='if specified, all the proteins have to be in the graph', action='store_true')
     parser.add_argument('--ckpt', help='file containing the DGN model, if not specified uses the default model', required=False, default='dgn.ckpt')
+    parser.add_argument('--emb', help='whther to use protein embeddings or not', action='store_true')
     args = parser.parse_args()
     
 
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     u_out = pd.Series([p.strip() for p in u_out])
     
     biogrid_graph = load_biogrid()
-    embeddings_dict = pickle.load((get_data_path() / "prediction_data/uniprot_embeddings_pca_128.pkl").open('rb'))
+
 
     #check if all proteins are in the graph
     if args.all_present:
@@ -107,12 +108,18 @@ if __name__ == "__main__":
             print("No output proteins found in the graph")
             sys.exit(1)
 
-    datalist, pairs = get_input_graphs(proteins, u_in, u_out, biogrid_graph, embeddings_dict)
-
+    if args.emb:
+        embeddings_dict = pickle.load((get_data_path() / "prediction_data/uniprot_embeddings_pca_128.pkl").open('rb'))
+        datalist, pairs = get_input_graphs(proteins, u_in, u_out, biogrid_graph, embeddings_dict)
+        base_dir = get_data_path() / f'prediction_data/ckpts/io+emb/'
+    else:
+        datalist, pairs = get_input_graphs(proteins, u_in, u_out, biogrid_graph)
+        base_dir = get_data_path() / f'prediction_data/ckpts/io/'
+        
     # load the DGN model
     ckpts={}
     for fold in range(4):
-        dir = get_data_path() / f'prediction_data/ckpts/{fold}'
+        dir = base_dir / fold
         config = pickle.load((dir/"params.pkl").open("rb"))
         ckpts[fold] = {
             'config': config,
