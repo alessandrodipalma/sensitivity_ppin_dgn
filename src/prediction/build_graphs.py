@@ -101,8 +101,11 @@ def nx_to_pyg(g: nx.DiGraph, pairs, embeddings: dict, io_features: bool = True) 
     # Create a mapping of node labels to indices
     node_indices = {label: i for i, label in enumerate(node_labels)}
     
-    node_features = [embeddings[node] for node in node_labels]
-    node_features = np.array(node_features)
+    if embeddings is None:
+        node_features = np.empty((len(node_labels), 0))
+    else:
+        node_features = [embeddings[node] for node in node_labels]
+        node_features = np.array(node_features)
     x_structure = torch.tensor(node_features, dtype=torch.float)
 
     # Extract edge information
@@ -182,6 +185,7 @@ def get_input_graphs(proteins_ids: list, u_in: list, u_out: list, biogrid_graph:
     print_graph_report(g)
     # generate all possible pairs of proteins
     pairs = pd.DataFrame([(i, j) for i in u_in for j in u_out], columns=['input', 'output'])
+
     datalist = nx_to_pyg(g, pairs, embeddings_dict, io_features=True)
 
     return datalist, pairs

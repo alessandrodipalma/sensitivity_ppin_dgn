@@ -4,7 +4,7 @@ import torch
 
 from src.prediction.build_graphs import *
 from src.prediction.predict import load_and_predict
-
+import os
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Predict sensitivity between pair of proteins')
@@ -20,6 +20,9 @@ if __name__ == "__main__":
     parser.add_argument('--emb', help='whther to use protein embeddings or not', action='store_true')
     parser.add_argument('--batch-size', help='batch size for prediction', required=False, default=256, type=int)
     args = parser.parse_args()
+
+    if args.gpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.gpu))
     
 
     # load the protein list
@@ -77,7 +80,7 @@ if __name__ == "__main__":
     # load the DGN model
     ckpts={}
     for fold in range(4):
-        dir = base_dir / fold
+        dir = base_dir / str(fold)
         config = pickle.load((dir/"params.pkl").open("rb"))
         config['batch_size'] = args.batch_size
         ckpts[fold] = {
@@ -92,16 +95,20 @@ if __name__ == "__main__":
         predictions.append(pred)
 
     # average the predictions
-    predictions = torch.stack(predictions)        
-    predictions = torch.mean(predictions, dim=0)
+    predictions = torch.sigmoid(torch.stack(predictions))        
+    predictions_mean = torch.mean(predictions, dim=0)
         
-    # save the results printing (in, out, prediction) to the output file
+    print(len(predictions_mean), len(datalist))
+    df = pd.DataFrame({
+        'input_species': [data['input_species'] for data in datalist],
+        'output_species': [data['output_species'] for data in datalist],
+        'prediction_mean': predictions_mean,
+    })   
+
     if args.outpath:
-        with open(args.outpath, 'w') as f:
-            for i, p in pairs.iterrows():
-                f.write(f"{p.input}\t{p.output}\t{predictions[i].item()}\n")
+        df.to_csv(args.outpath, sep='\t')
     else:
-        for i, p in pairs.iterrows():
-            print(f"{p.input}\t{p.output}\t{predictions[i].item()}")
+        print(df)
+
 
 

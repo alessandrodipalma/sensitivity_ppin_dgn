@@ -26,9 +26,9 @@ The code to produce the model analysis and the plots present in Figure 7 can be 
 
 To predict sensitivity over any BioGRID PPIN subgraph, just run:
 ```
-    python -m src.prediction.sensitivity_prediction.py --p <proteins.txt> --p-in <input_proteins.txt> --p-out <output_proteins.txt>
+    python -m src.prediction.sensitivity_prediction --p <proteins.txt> --p-in <input_proteins.txt> --p-out <output_proteins.txt>
 ```
-The script will automatically extrtact the proteins subgraph from the BioGRID database in tabular data, present in `data/external_data/biogrid`. From the script parameters, you can also select the specific PPIN file, so you can use any PPIN put in the same data format.
+The script will automatically extract the proteins subgraph from the BioGRID database in tabular data, present in `data/external_data/biogrid`. From the script parameters, you can also select the specific PPIN file, so you can use any PPIN put in the same data format.
 The script will print a coverage of the desired proteins w.r.t. DyPPIN, and an estimation of the confidence given the graph topology. We suggest to run the prediction over subgraphs with not much more nodes than the ones in the training data (40 nodes).
 
 ## Predicting sensitivity from datalist
