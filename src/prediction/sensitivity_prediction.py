@@ -1,52 +1,9 @@
-# This code provides a command line tool to perform prediction of sensitivity between pair of proteins
-# The user should call python sensitivity_prediction.py 
-#   --p <file containing the protein list> 
-#   --p-in <input protein or file containing the input proteins> 
-#   --p-out <output proteins or file containing the output proteins> 
-#   --all <predicts sensitivity for any protein pair>
-#   --out <output file, if not specified prints to shell>
-#   --gpu <gpu to use for prediction, if not specified uses CPU>
-#   --ckpt <file containing the DGN model, if not specified uses the default model>
-#   --timing <if specified, measures the inference time for the prediction and produces a csv file with the results>
-
 import sys
 import argparse
 import torch
 
 from src.prediction.build_graphs import *
-from src.model_development.dgn.dgn import DGN
-from src.model_development.datamodule import GraphDataModule
-from lightning import Trainer
-
-
-def load_and_predict(config, ckpt, datalist):
-
-    if 'aggr' not in config.keys():
-        config['aggr'] = config['SAGE_aggr']
-    if 'uniform_bound' not in config.keys():
-        config['uniform_bound'] = None
-    if 'weight_initializer' not in config.keys():
-        config['weight_initializer'] = 'kaiming_uniform'
-
-    config['batch_size'] = 5000
-    
-    
-    input_dim = datalist[0].x.shape[1]
-    output_dim = 1
-    data = GraphDataModule(datalist, datalist, datalist, config)
-    data.setup()
-
-    model = DGN.load_from_checkpoint(ckpt, input_dim=input_dim, output_dim=output_dim, config=config,  map_location=torch.device('cuda'), strict=False)
-    
-    cuda_args = {"accelerator": "gpu"}
-
-    trainer = Trainer(enable_progress_bar = False, logger=False, **cuda_args)
-    print("Model type: ", type(model.eval()))
-
-    predictions = trainer.predict(model, data.test_dataloader())
-    predictions = torch.cat(predictions)
-    
-    return predictions
+from src.prediction.predict import load_and_predict
 
 
 if __name__ == "__main__":
@@ -61,6 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('--all-present', help='if specified, all the proteins have to be in the graph', action='store_true')
     parser.add_argument('--ckpt', help='file containing the DGN model, if not specified uses the default model', required=False, default='dgn.ckpt')
     parser.add_argument('--emb', help='whther to use protein embeddings or not', action='store_true')
+    parser.add_argument('--batch-size', help='batch size for prediction', required=False, default=256, type=int)
     args = parser.parse_args()
     
 
@@ -115,12 +73,13 @@ if __name__ == "__main__":
     else:
         datalist, pairs = get_input_graphs(proteins, u_in, u_out, biogrid_graph)
         base_dir = get_data_path() / f'prediction_data/ckpts/io/'
-        
+
     # load the DGN model
     ckpts={}
     for fold in range(4):
         dir = base_dir / fold
         config = pickle.load((dir/"params.pkl").open("rb"))
+        config['batch_size'] = args.batch_size
         ckpts[fold] = {
             'config': config,
             'ckpt': dir/"last.ckpt"

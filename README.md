@@ -30,3 +30,15 @@ To predict sensitivity over any BioGRID PPIN subgraph, just run:
 ```
 The script will automatically extrtact the proteins subgraph from the BioGRID database in tabular data, present in `data/external_data/biogrid`. From the script parameters, you can also select the specific PPIN file, so you can use any PPIN put in the same data format.
 The script will print a coverage of the desired proteins w.r.t. DyPPIN, and an estimation of the confidence given the graph topology. We suggest to run the prediction over subgraphs with not much more nodes than the ones in the training data (40 nodes).
+
+## Predicting sensitivity from datalist
+
+If you already have extracted the graphs on which you want to perform the predictions, you can convert them from networks to the needed pyg format using the utility function `src.prediction.build_graphs.nx_to_pyg`. Once you have you datalist, run:
+
+```
+    python -m src.prediction.sensitivity_prediction_datalist --datalist {your_data_path}/data_list.pickle --gpu 0 --outpath {your_data_path}/predictions.tsv
+```
+
+## Case study (BACH2 relevance in insulin and glucagon regulation)
+
+The notebook `case_study_bach2.ipynb` presents the analysis of the models prediction and the code to reproduce Figure 8.

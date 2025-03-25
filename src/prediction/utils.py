@@ -12,3 +12,4 @@ def get_pred_data_path():
 
 def get_case_study_path():
     return Path(json.load(open("config.json"))["case_study_path"])
+
